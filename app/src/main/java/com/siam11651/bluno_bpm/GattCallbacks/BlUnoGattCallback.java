@@ -4,6 +4,7 @@ import android.Manifest;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
@@ -12,21 +13,18 @@ import android.content.pm.PackageManager;
 import androidx.core.app.ActivityCompat;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BlUnoGattCallback extends BluetoothGattCallback
 {
-    private class BluetoothGattCharacteristicHelper
-    {
-        BluetoothGattCharacteristic characteristic;
-        String characteristicValue;
-
-        BluetoothGattCharacteristicHelper(BluetoothGattCharacteristic characteristic, String characteristicValue)
-        {
-            this.characteristic = characteristic;
-            this.characteristicValue = characteristicValue;
-        }
-    }
-
+    private final String password = "AT+PASSWOR=DFRobot\r\n";
+    private final String baudRateBuffer = "AT+UART=115200\r\n";
+    public static final String SerialPortUUID = "0000dfb1-0000-1000-8000-00805f9b34fb";
+    public static final String CommandUUID = "0000dfb2-0000-1000-8000-00805f9b34fb";
+    public static final String ModelNumberStringUUID = "00002a24-0000-1000-8000-00805f9b34fb";
+    private BluetoothGattCharacteristic sCharacteristic, modelNumberCharactersitic, serialPortCharacteristic, commandCharacteristic;
+    private ArrayList<ArrayList<BluetoothGattCharacteristic>> gattCharacteristics;
     public final static String ACTION_GATT_CONNECTED = "com.siam11651.bluno_bpm.ACTION_GATT_CONNECTED";
     public final static String ACTION_GATT_DISCONNECTED = "com.siam11651.bluno_bpm.ACTION_GATT_DISCONNECTED";
     public final static String ACTION_GATT_SERVICES_DISCOVERED = "com.siam11651.bluno_bpm.ACTION_GATT_SERVICES_DISCOVERED";
@@ -80,14 +78,28 @@ public class BlUnoGattCallback extends BluetoothGattCallback
     {
         if(status == BluetoothGatt.GATT_SUCCESS)
         {
-            BroadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            if(sCharacteristic == modelNumberCharactersitic)
+            {
+                SetSerialCharacteristic();
+            }
+            else
+            {
+                BroadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            }
         }
     }
 
     @Override
     public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic)
     {
-        BroadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+        if(sCharacteristic == modelNumberCharactersitic)
+        {
+            SetSerialCharacteristic();
+        }
+        else
+        {
+            BroadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+        }
     }
 
     @Override
@@ -95,7 +107,7 @@ public class BlUnoGattCallback extends BluetoothGattCallback
     {
         if(status == BluetoothGatt.GATT_SUCCESS)
         {
-            BroadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
+            DisplayGattServices(gatt.getServices());
         }
     }
 
@@ -180,5 +192,77 @@ public class BlUnoGattCallback extends BluetoothGattCallback
         }
 
         bluetoothGatt.setCharacteristicNotification(bluetoothGattCharacteristic, enable);
+    }
+
+    private void SetSerialCharacteristic()
+    {
+        SetCharacteristicNotification(sCharacteristic, false);
+
+        sCharacteristic = commandCharacteristic;
+
+        sCharacteristic.setValue(password);
+        WriteCharacteristic(sCharacteristic);
+        sCharacteristic.setValue(baudRateBuffer);
+        WriteCharacteristic(sCharacteristic);
+
+        sCharacteristic = serialPortCharacteristic;
+
+        SetCharacteristicNotification(sCharacteristic, true);
+        ReadCharacteristic(sCharacteristic);
+    }
+
+    private void DisplayGattServices(List<BluetoothGattService> bluetoothGattServices)
+    {
+        if(bluetoothGattServices == null)
+        {
+            return;
+        }
+
+        String uuid = null;
+        modelNumberCharactersitic = null;
+        serialPortCharacteristic = null;
+        commandCharacteristic = null;
+        gattCharacteristics = new ArrayList<>();
+
+        for(BluetoothGattService bluetoothGattService : bluetoothGattServices)
+        {
+            uuid = bluetoothGattService.getUuid().toString();
+            List<BluetoothGattCharacteristic> tempBluetoothGattCharacteristics = bluetoothGattService.getCharacteristics();
+            ArrayList<BluetoothGattCharacteristic> charas = new ArrayList<>();
+
+            for(BluetoothGattCharacteristic bluetoothGattCharacteristic : tempBluetoothGattCharacteristics)
+            {
+                charas.add(bluetoothGattCharacteristic);
+
+                uuid = bluetoothGattCharacteristic.getUuid().toString();
+
+                if(uuid.equals(ModelNumberStringUUID))
+                {
+                    modelNumberCharactersitic = bluetoothGattCharacteristic;
+                }
+                else if(uuid.equals(SerialPortUUID))
+                {
+                    serialPortCharacteristic = bluetoothGattCharacteristic;
+                }
+                else if(uuid.equals(CommandUUID))
+                {
+                    commandCharacteristic = bluetoothGattCharacteristic;
+                }
+            }
+
+            gattCharacteristics.add(charas);
+        }
+
+        if(modelNumberCharactersitic == null || serialPortCharacteristic == null || commandCharacteristic == null)
+        {
+            // rescan
+        }
+        else
+        {
+            sCharacteristic = modelNumberCharactersitic;
+            SetCharacteristicNotification(sCharacteristic, true);
+            ReadCharacteristic(sCharacteristic);
+            BroadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
+        }
     }
 }

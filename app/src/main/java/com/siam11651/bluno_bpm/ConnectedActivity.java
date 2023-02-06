@@ -38,69 +38,10 @@ import java.util.List;
 
 public class ConnectedActivity extends AppCompatActivity
 {
-    private final String password = "AT+PASSWOR=DFRobot\r\n";
-    private final String baudRateBuffer = "AT+UART=115200\r\n";
-    public static final String SerialPortUUID = "0000dfb1-0000-1000-8000-00805f9b34fb";
-    public static final String CommandUUID = "0000dfb2-0000-1000-8000-00805f9b34fb";
-    public static final String ModelNumberStringUUID = "00002a24-0000-1000-8000-00805f9b34fb";
-    private BluetoothGattCharacteristic sCharacteristic, modelNumberCharactersitic, serialPortCharacteristic, commandCharacteristic;
-    private ArrayList<ArrayList<BluetoothGattCharacteristic>> gattCharacteristics;
+    private String state;
+    private Intent bluetoothServiceIntent;
     private BluetoothLEServiceWrapper bluetoothLEServiceWrapper;
     private BluetoothLEServiceConnection bluetoothLEServiceConnection;
-
-    private void DisplayGattServices(List<BluetoothGattService> bluetoothGattServices)
-    {
-        if(bluetoothGattServices == null)
-        {
-            return;
-        }
-
-        String uuid = null;
-        modelNumberCharactersitic = null;
-        serialPortCharacteristic = null;
-        commandCharacteristic = null;
-        gattCharacteristics = new ArrayList<>();
-
-        for(BluetoothGattService bluetoothGattService : bluetoothGattServices)
-        {
-            uuid = bluetoothGattService.getUuid().toString();
-            List<BluetoothGattCharacteristic> tempBluetoothGattCharacteristics = bluetoothGattService.getCharacteristics();
-            ArrayList<BluetoothGattCharacteristic> charas = new ArrayList<>();
-
-            for(BluetoothGattCharacteristic bluetoothGattCharacteristic : tempBluetoothGattCharacteristics)
-            {
-                charas.add(bluetoothGattCharacteristic);
-
-                uuid = bluetoothGattCharacteristic.getUuid().toString();
-
-                if(uuid.equals(ModelNumberStringUUID))
-                {
-                    modelNumberCharactersitic = bluetoothGattCharacteristic;
-                }
-                else if(uuid.equals(SerialPortUUID))
-                {
-                    serialPortCharacteristic = bluetoothGattCharacteristic;
-                }
-                else if(uuid.equals(CommandUUID))
-                {
-                    commandCharacteristic = bluetoothGattCharacteristic;
-                }
-            }
-
-            gattCharacteristics.add(charas);
-        }
-
-        if(modelNumberCharactersitic == null || serialPortCharacteristic == null || commandCharacteristic == null)
-        {
-            // rescan
-        }
-        else
-        {
-            sCharacteristic = modelNumberCharactersitic;
-            bluetoothLEServiceWrapper.GetBluetoothLEService().GetBluetoothGattCallback().SetCharacteristicNotification(sCharacteristic, true);
-            bluetoothLEServiceWrapper.GetBluetoothLEService().GetBluetoothGattCallback().ReadCharacteristic(sCharacteristic);
-        }
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -109,14 +50,16 @@ public class ConnectedActivity extends AppCompatActivity
         setContentView(R.layout.activity_connected);
         getSupportActionBar().setTitle(BluetoothConnection.GetBluetoothConnection().GetDevice().GetName());
 
+        state = "";
         TextView systoleTextView = findViewById(R.id.systole_text_view);
         TextView diastoleTextView = findViewById(R.id.diastole_text_view);
         BluetoothConnection bluetoothConnection = BluetoothConnection.GetBluetoothConnection();
         bluetoothLEServiceWrapper = new BluetoothLEServiceWrapper(null);
         bluetoothLEServiceConnection = new BluetoothLEServiceConnection(bluetoothLEServiceWrapper, bluetoothConnection.GetDevice());
-        Intent bluetoothServiceIntent = new Intent(this, BluetoothLEService.class);
+        bluetoothServiceIntent = new Intent(this, BluetoothLEService.class);
 
-        bindService(bluetoothServiceIntent, bluetoothLEServiceConnection, Context.BIND_AUTO_CREATE);
+        // bindService(bluetoothServiceIntent, bluetoothLEServiceConnection, Context.BIND_AUTO_CREATE);
+        startForegroundService(bluetoothServiceIntent);
 
         BroadcastReceiver bleBroadcastReciever = new BroadcastReceiver()
         {
@@ -129,35 +72,17 @@ public class ConnectedActivity extends AppCompatActivity
                 }
                 else if(intent.getAction().equals(BlUnoGattCallback.ACTION_GATT_SERVICES_DISCOVERED))
                 {
-                    DisplayGattServices(bluetoothLEServiceWrapper.GetBluetoothLEService().GetSupportedGattServices());
+                    state = "model";
                 }
                 else if(intent.getAction().equals(BlUnoGattCallback.ACTION_DATA_AVAILABLE))
                 {
-                    if(sCharacteristic == modelNumberCharactersitic)
-                    {
-                        if(intent.getStringExtra(BlUnoGattCallback.EXTRA_DATA).toUpperCase().startsWith("DF BLUNO"))
-                        {
-                            bluetoothLEServiceWrapper.GetBluetoothLEService().GetBluetoothGattCallback().SetCharacteristicNotification(sCharacteristic, false);
-                            sCharacteristic = commandCharacteristic;
-                            sCharacteristic.setValue(password);
-                            bluetoothLEServiceWrapper.GetBluetoothLEService().GetBluetoothGattCallback().WriteCharacteristic(sCharacteristic);
-                            sCharacteristic.setValue(baudRateBuffer);
-                            bluetoothLEServiceWrapper.GetBluetoothLEService().GetBluetoothGattCallback().WriteCharacteristic(sCharacteristic);
-                            sCharacteristic = serialPortCharacteristic;
-                            bluetoothLEServiceWrapper.GetBluetoothLEService().GetBluetoothGattCallback().SetCharacteristicNotification(sCharacteristic, true);
-                            bluetoothLEServiceWrapper.GetBluetoothLEService().GetBluetoothGattCallback().ReadCharacteristic(sCharacteristic);
-                        }
-                    }
-                    else if(sCharacteristic == serialPortCharacteristic)
-                    {
-                        String data = intent.getStringExtra(BlUnoGattCallback.EXTRA_DATA);
-                        String[] tokens = data.split(" ");
+                    String data = intent.getStringExtra(BlUnoGattCallback.EXTRA_DATA);
+                    String[] tokens = data.split(" ");
 
-                        if(tokens[0].equals("b"))
-                        {
-                            systoleTextView.setText(tokens[1]);
-                            diastoleTextView.setText(tokens[2]);
-                        }
+                    if(tokens[0].equals("b"))
+                    {
+                        systoleTextView.setText(tokens[1]);
+                        diastoleTextView.setText(tokens[2]);
                     }
                 }
             }
@@ -193,8 +118,8 @@ public class ConnectedActivity extends AppCompatActivity
                 throw new RuntimeException(e);
             }
 
-            bluetoothLEServiceWrapper.GetBluetoothLEService().Disconnect();
-            unbindService(bluetoothLEServiceConnection);
+            // unbindService(bluetoothLEServiceConnection);
+            stopService(bluetoothServiceIntent);
 
             Intent intent = new Intent(this, MainActivity.class);
 

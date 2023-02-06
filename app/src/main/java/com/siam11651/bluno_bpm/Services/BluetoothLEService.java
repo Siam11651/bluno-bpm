@@ -1,6 +1,7 @@
 package com.siam11651.bluno_bpm.Services;
 
 import android.Manifest;
+import android.app.IntentService;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -21,9 +22,11 @@ import androidx.core.app.ActivityCompat;
 
 import com.siam11651.bluno_bpm.GattCallbacks.BlUnoGattCallback;
 import com.siam11651.bluno_bpm.ServiceBinders.BluetoothLEServiceBinder;
+import com.siam11651.bluno_bpm.Utils.BluetoothConnection;
 import com.siam11651.bluno_bpm.Utils.TrimmedDevice;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 public class BluetoothLEService extends Service
@@ -81,6 +84,19 @@ public class BluetoothLEService extends Service
 
         bluetoothGatt.disconnect();
         bluetoothGatt.close();
+    }
+
+    @Override
+    public void onCreate()
+    {
+        super.onCreate();
+        Connect(BluetoothConnection.GetBluetoothConnection().GetDevice());
+    }
+
+    @Override
+    public void onDestroy()
+    {
+        super.onDestroy();
     }
 
     public List<BluetoothGattService> GetSupportedGattServices()
