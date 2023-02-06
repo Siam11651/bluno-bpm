@@ -10,18 +10,18 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
 
-import com.androidplot.xy.BoundaryMode;
-import com.androidplot.xy.SimpleXYSeries;
-import com.androidplot.xy.StepMode;
-import com.androidplot.xy.XValueMarker;
-import com.androidplot.xy.XYPlot;
-import com.androidplot.xy.XYSeries;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.renderer.XAxisRenderer;
 import com.siam11651.bluno_bpm.GattCallbacks.BlUnoGattCallback;
 import com.siam11651.bluno_bpm.ServiceConnections.BluetoothLEServiceConnection;
 import com.siam11651.bluno_bpm.Services.BluetoothLEService;
@@ -32,16 +32,14 @@ import com.siam11651.bluno_bpm.Utils.DeviceReaderWriter;
 import org.json.JSONException;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class ConnectedActivity extends AppCompatActivity
 {
-    private String state;
     private Intent bluetoothServiceIntent;
-    private BluetoothLEServiceWrapper bluetoothLEServiceWrapper;
-    private BluetoothLEServiceConnection bluetoothLEServiceConnection;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -50,12 +48,8 @@ public class ConnectedActivity extends AppCompatActivity
         setContentView(R.layout.activity_connected);
         getSupportActionBar().setTitle(BluetoothConnection.GetBluetoothConnection().GetDevice().GetName());
 
-        state = "";
         TextView systoleTextView = findViewById(R.id.systole_text_view);
         TextView diastoleTextView = findViewById(R.id.diastole_text_view);
-        BluetoothConnection bluetoothConnection = BluetoothConnection.GetBluetoothConnection();
-        bluetoothLEServiceWrapper = new BluetoothLEServiceWrapper(null);
-        bluetoothLEServiceConnection = new BluetoothLEServiceConnection(bluetoothLEServiceWrapper, bluetoothConnection.GetDevice());
         bluetoothServiceIntent = new Intent(this, BluetoothLEService.class);
 
         // bindService(bluetoothServiceIntent, bluetoothLEServiceConnection, Context.BIND_AUTO_CREATE);
@@ -69,10 +63,6 @@ public class ConnectedActivity extends AppCompatActivity
                 if(intent.getAction().equals(BlUnoGattCallback.ACTION_GATT_CONNECTED))
                 {
                     Log.println(Log.INFO, "connection", "connected");
-                }
-                else if(intent.getAction().equals(BlUnoGattCallback.ACTION_GATT_SERVICES_DISCOVERED))
-                {
-                    state = "model";
                 }
                 else if(intent.getAction().equals(BlUnoGattCallback.ACTION_DATA_AVAILABLE))
                 {
@@ -94,6 +84,16 @@ public class ConnectedActivity extends AppCompatActivity
         intentFilter.addAction(BlUnoGattCallback.ACTION_GATT_SERVICES_DISCOVERED);
         intentFilter.addAction(BlUnoGattCallback.ACTION_DATA_AVAILABLE);
         registerReceiver(bleBroadcastReciever, intentFilter);
+
+        LineChart chart = findViewById(R.id.chart1);
+
+        chart.setBackgroundColor(Color.WHITE);
+        LineData lineData = new LineData();
+        LineDataSet lineDataSet = new LineDataSet(Arrays.asList(new Entry(1, 1), new Entry(2, 4), new Entry(3, 9)), "square");
+
+        lineData.addDataSet(lineDataSet);
+        chart.setData(lineData);
+        chart.setDescription(null);
     }
 
     @Override
