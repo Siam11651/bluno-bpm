@@ -15,8 +15,10 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -70,103 +72,120 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v)
             {
-                AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(MainActivity.this);
+                LocationManager locationManager = (LocationManager)MainActivity.this.getSystemService(Context.LOCATION_SERVICE);
 
-                alertDialogBuilder.setTitle("Scanned Devices");
-
-                LinearLayout linearLayout = new LinearLayout(MainActivity.this);
-                TextView emptyTextView = new TextView(MainActivity.this);
-
-                emptyTextView.setText("Wow! Such empty");
-                emptyTextView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-                emptyTextView.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-                linearLayout.setOrientation(LinearLayout.VERTICAL);
-                linearLayout.addView(emptyTextView);
-                alertDialogBuilder.setView(linearLayout);
-                alertDialogBuilder.setCancelable(false);
-
-                BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-                alertDialogBuilder.setNegativeButton("Close", new DialogInterface.OnClickListener()
+                if(locationManager.isLocationEnabled())
                 {
-                    @SuppressLint("MissingPermission")
-                    @Override
-                    public void onClick(DialogInterface dialog, int which)
+                    AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(MainActivity.this);
+
+                    alertDialogBuilder.setTitle("Scanned Devices");
+
+                    LinearLayout linearLayout = new LinearLayout(MainActivity.this);
+                    TextView emptyTextView = new TextView(MainActivity.this);
+
+                    emptyTextView.setText("Wow! Such empty");
+                    emptyTextView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+                    emptyTextView.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+                    linearLayout.setOrientation(LinearLayout.VERTICAL);
+                    linearLayout.addView(emptyTextView);
+                    alertDialogBuilder.setView(linearLayout);
+                    alertDialogBuilder.setCancelable(false);
+
+                    BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+                    alertDialogBuilder.setNegativeButton("Close", new DialogInterface.OnClickListener()
                     {
-                        bluetoothAdapter.cancelDiscovery();
-                    }
-                });
-
-                AlertDialog alertDialog = alertDialogBuilder.create();
-
-                alertDialog.show();
-                bluetoothAdapter.startDiscovery();
-
-                Vector<TrimmedDevice> trimmedDeviceVector = new Vector<>();
-
-                BroadcastReceiver bluetoothFoundBoradcastReciever = new BroadcastReceiver()
-                {
-                    @Override
-                    public void onReceive(Context context, Intent intent)
-                    {
-                        if(intent.getAction().equals(BluetoothDevice.ACTION_FOUND))
+                        @SuppressLint("MissingPermission")
+                        @Override
+                        public void onClick(DialogInterface dialog, int which)
                         {
-                            BluetoothDevice bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                            bluetoothAdapter.cancelDiscovery();
+                        }
+                    });
 
-                            @SuppressLint("MissingPermission") TrimmedDevice trimmedDevice = new TrimmedDevice(bluetoothDevice.getName(), bluetoothDevice.getAddress());
-                            boolean exists = false;
+                    AlertDialog alertDialog = alertDialogBuilder.create();
 
-                            for(int i = 0; i < trimmedDeviceVector.size(); ++i)
+                    alertDialog.show();
+                    bluetoothAdapter.startDiscovery();
+
+                    Vector<TrimmedDevice> trimmedDeviceVector = new Vector<>();
+
+                    BroadcastReceiver bluetoothFoundBoradcastReciever = new BroadcastReceiver()
+                    {
+                        @Override
+                        public void onReceive(Context context, Intent intent)
+                        {
+                            if(intent.getAction().equals(BluetoothDevice.ACTION_FOUND))
                             {
-                                if(trimmedDeviceVector.get(i).GetAddress().equals(trimmedDevice.GetAddress()))
+                                BluetoothDevice bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+
+                                @SuppressLint("MissingPermission") TrimmedDevice trimmedDevice = new TrimmedDevice(bluetoothDevice.getName(), bluetoothDevice.getAddress());
+                                boolean exists = false;
+
+                                for(int i = 0; i < trimmedDeviceVector.size(); ++i)
                                 {
-                                    exists = true;
-
-                                    break;
-                                }
-                            }
-
-                            if(!exists)
-                            {
-                                if(trimmedDeviceVector.size() == 0)
-                                {
-                                    linearLayout.removeAllViews();
-                                }
-
-                                trimmedDeviceVector.add(trimmedDevice);
-
-                                CardView scannedDeviceCardView = (CardView)getLayoutInflater().inflate(R.layout.sample_scanned_device, linearLayout, false);
-                                TextView nameTextView = scannedDeviceCardView.findViewById(R.id.scanned_device_name_text_view);
-                                TextView addressTextView = scannedDeviceCardView.findViewById(R.id.scanned_device_address_text_view);
-
-                                scannedDeviceCardView.setOnClickListener(new View.OnClickListener()
-                                {
-                                    @Override
-                                    public void onClick(View v)
+                                    if(trimmedDeviceVector.get(i).GetAddress().equals(trimmedDevice.GetAddress()))
                                     {
-                                        try
-                                        {
-                                            DeviceReaderWriter.Write(MainActivity.this, trimmedDevice);
-                                        }
-                                        catch(IOException | JSONException e)
-                                        {
-                                            throw new RuntimeException(e);
-                                        }
+                                        exists = true;
 
-                                        ChangeActivity(trimmedDevice);
-                                        alertDialog.dismiss();
+                                        break;
                                     }
-                                });
+                                }
 
-                                nameTextView.setText(trimmedDevice.GetName());
-                                addressTextView.setText(trimmedDevice.GetAddress());
-                                linearLayout.addView(scannedDeviceCardView);
+                                if(!exists)
+                                {
+                                    if(trimmedDeviceVector.size() == 0)
+                                    {
+                                        linearLayout.removeAllViews();
+                                    }
+
+                                    trimmedDeviceVector.add(trimmedDevice);
+
+                                    CardView scannedDeviceCardView = (CardView)getLayoutInflater().inflate(R.layout.sample_scanned_device, linearLayout, false);
+                                    TextView nameTextView = scannedDeviceCardView.findViewById(R.id.scanned_device_name_text_view);
+                                    TextView addressTextView = scannedDeviceCardView.findViewById(R.id.scanned_device_address_text_view);
+
+                                    scannedDeviceCardView.setOnClickListener(new View.OnClickListener()
+                                    {
+                                        @Override
+                                        public void onClick(View v)
+                                        {
+                                            try
+                                            {
+                                                DeviceReaderWriter.Write(MainActivity.this, trimmedDevice);
+                                            }
+                                            catch(IOException | JSONException e)
+                                            {
+                                                throw new RuntimeException(e);
+                                            }
+
+                                            ChangeActivity(trimmedDevice);
+                                            alertDialog.dismiss();
+                                        }
+                                    });
+
+                                    nameTextView.setText(trimmedDevice.GetName());
+                                    addressTextView.setText(trimmedDevice.GetAddress());
+                                    linearLayout.addView(scannedDeviceCardView);
+                                }
                             }
                         }
-                    }
-                };
+                    };
 
-                registerReceiver(bluetoothFoundBoradcastReciever, new IntentFilter(BluetoothDevice.ACTION_FOUND));
+                    registerReceiver(bluetoothFoundBoradcastReciever, new IntentFilter(BluetoothDevice.ACTION_FOUND));
+                }
+                else
+                {
+                    Toast toast = new Toast(MainActivity.this);
+
+                    toast.setText("Location service required to scan nearby devices");
+                    toast.setDuration(Toast.LENGTH_SHORT);
+                    toast.show();
+
+                    Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+
+                    startActivity(intent);
+                }
             }
         });
     }

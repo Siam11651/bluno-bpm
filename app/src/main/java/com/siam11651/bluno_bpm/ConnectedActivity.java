@@ -58,6 +58,25 @@ public class ConnectedActivity extends AppCompatActivity
 
         LineChart chart = findViewById(R.id.chart1);
         final Long[] count = {0L};
+        LineData lineData = new LineData();
+        LineDataSet systoleDataSet = new LineDataSet(systoleEntries, "Systole");
+        LineDataSet diastoleDataSet = new LineDataSet(diastoleEntries, "Diastole");
+
+        systoleDataSet.setValueTextSize(0);
+        systoleDataSet.setDrawCircles(false);
+        diastoleDataSet.setColor(Color.RED);
+        diastoleDataSet.setCircleColor(Color.RED);
+        diastoleDataSet.setValueTextSize(0);
+        diastoleDataSet.setDrawCircles(false);
+        lineData.addDataSet(systoleDataSet);
+        lineData.addDataSet(diastoleDataSet);
+        chart.setData(lineData);
+        chart.setBackgroundColor(Color.WHITE);
+        chart.setDescription(null);
+        chart.setDragEnabled(false);
+        chart.setScaleEnabled(false);
+        chart.setPinchZoom(false);
+
         BroadcastReceiver bleBroadcastReciever = new BroadcastReceiver()
         {
             @Override
@@ -74,17 +93,6 @@ public class ConnectedActivity extends AppCompatActivity
 
                     if(tokens[0].equals("b"))
                     {
-                        LineData lineData = new LineData();
-                        LineDataSet systoleDataSet = new LineDataSet(systoleEntries, "Systole");
-                        LineDataSet diastoleDataSet = new LineDataSet(diastoleEntries, "Diastole");
-
-                        systoleDataSet.setValueTextSize(0);
-                        systoleDataSet.setDrawCircles(false);
-                        diastoleDataSet.setColor(Color.RED);
-                        diastoleDataSet.setCircleColor(Color.RED);
-                        diastoleDataSet.setValueTextSize(0);
-                        diastoleDataSet.setDrawCircles(false);
-
                         if(systoleEntries.size() > 50)
                         {
                             systoleEntries.remove(0);
@@ -100,9 +108,9 @@ public class ConnectedActivity extends AppCompatActivity
 
                         ++count[0];
 
-                        lineData.addDataSet(systoleDataSet);
-                        lineData.addDataSet(diastoleDataSet);
-                        chart.setData(lineData);
+                        systoleDataSet.notifyDataSetChanged();
+                        diastoleDataSet.notifyDataSetChanged();
+                        lineData.notifyDataChanged();
                         chart.notifyDataSetChanged();
                         chart.invalidate();
                         systoleTextView.setText(tokens[1]);
@@ -143,9 +151,6 @@ public class ConnectedActivity extends AppCompatActivity
         intentFilter.addAction(BlUnoGattCallback.ACTION_DATA_AVAILABLE);
         intentFilter.addAction("INVALID_DEVICE");
         registerReceiver(bleBroadcastReciever, intentFilter);
-        chart.setBackgroundColor(Color.WHITE);
-        chart.setDescription(null);
-        chart.setDragEnabled(false);
     }
 
     @Override
