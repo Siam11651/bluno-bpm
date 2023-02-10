@@ -1,16 +1,22 @@
 package com.siam11651.bluno_bpm.GattCallbacks;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
+
+import com.siam11651.bluno_bpm.MainActivity;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -38,24 +44,13 @@ public class BlUnoGattCallback extends BluetoothGattCallback
         this.context = context;
     }
 
+    @SuppressLint("MissingPermission")
     @Override
     public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState)
     {
         if(newState == BluetoothProfile.STATE_CONNECTED)
         {
             BroadcastUpdate(ACTION_GATT_CONNECTED);
-
-            if(ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
-            {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-            }
-
             gatt.discoverServices();
         }
         else if(newState == BluetoothProfile.STATE_DISCONNECTED)
@@ -136,61 +131,21 @@ public class BlUnoGattCallback extends BluetoothGattCallback
         this.bluetoothGatt = bluetoothGatt;
     }
 
-    public BluetoothGatt GetBluetoothGatt()
-    {
-        return bluetoothGatt;
-    }
-
+    @SuppressLint("MissingPermission")
     public void ReadCharacteristic(BluetoothGattCharacteristic bluetoothGattCharacteristic)
     {
-        if(ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
-        {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-        }
-
         bluetoothGatt.readCharacteristic(bluetoothGattCharacteristic);
     }
 
+    @SuppressLint("MissingPermission")
     public void WriteCharacteristic(BluetoothGattCharacteristic bluetoothGattCharacteristic)
     {
-        String string = new String(bluetoothGattCharacteristic.getValue(), StandardCharsets.ISO_8859_1);
-
-        // characteristicRingBuffer.push(new BluetoothGattCharacteristicHelper(bluetoothGattCharacteristic, string));
-        // onCharacteristicWrite(bluetoothGatt, bluetoothGattCharacteristic, WRITE_NEW_CHARACTERISTIC);
-
-        if(ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
-        {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-        }
-
         bluetoothGatt.writeCharacteristic(bluetoothGattCharacteristic);
     }
 
+    @SuppressLint("MissingPermission")
     public void SetCharacteristicNotification(BluetoothGattCharacteristic bluetoothGattCharacteristic, boolean enable)
     {
-        if(ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
-        {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-        }
-
         bluetoothGatt.setCharacteristicNotification(bluetoothGattCharacteristic, enable);
     }
 
@@ -211,6 +166,7 @@ public class BlUnoGattCallback extends BluetoothGattCallback
         ReadCharacteristic(sCharacteristic);
     }
 
+    @SuppressLint("MissingPermission")
     private void DisplayGattServices(List<BluetoothGattService> bluetoothGattServices)
     {
         if(bluetoothGattServices == null)
@@ -255,7 +211,7 @@ public class BlUnoGattCallback extends BluetoothGattCallback
 
         if(modelNumberCharactersitic == null || serialPortCharacteristic == null || commandCharacteristic == null)
         {
-            // rescan
+            BroadcastUpdate("INVALID_DEVICE");
         }
         else
         {

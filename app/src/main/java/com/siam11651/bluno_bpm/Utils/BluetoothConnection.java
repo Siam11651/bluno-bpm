@@ -1,21 +1,12 @@
 package com.siam11651.bluno_bpm.Utils;
 
 import android.Manifest;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
-import android.os.IBinder;
 
 import androidx.core.app.ActivityCompat;
 
-import com.siam11651.bluno_bpm.ServiceBinders.BluetoothLEServiceBinder;
 import com.siam11651.bluno_bpm.Services.BluetoothLEService;
-
-import java.io.IOException;
 
 public class BluetoothConnection
 {

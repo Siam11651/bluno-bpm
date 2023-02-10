@@ -6,28 +6,23 @@ import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.siam11651.bluno_bpm.ServiceBinders.BluetoothLEServiceBinder;
-import com.siam11651.bluno_bpm.ServiceConnections.BluetoothLEServiceConnection;
-import com.siam11651.bluno_bpm.Services.BluetoothLEService;
 import com.siam11651.bluno_bpm.Utils.BluetoothConnection;
 import com.siam11651.bluno_bpm.Utils.DeviceReaderWriter;
 import com.siam11651.bluno_bpm.Utils.TrimmedDevice;
@@ -35,6 +30,7 @@ import com.siam11651.bluno_bpm.Utils.TrimmedDevice;
 import org.json.JSONException;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Vector;
 
 public class MainActivity extends AppCompatActivity
@@ -70,6 +66,7 @@ public class MainActivity extends AppCompatActivity
 
         scanNewDeviceButton.setOnClickListener(new View.OnClickListener()
         {
+            @SuppressLint("MissingPermission")
             @Override
             public void onClick(View v)
             {
@@ -92,20 +89,10 @@ public class MainActivity extends AppCompatActivity
 
                 alertDialogBuilder.setNegativeButton("Close", new DialogInterface.OnClickListener()
                 {
+                    @SuppressLint("MissingPermission")
                     @Override
                     public void onClick(DialogInterface dialog, int which)
                     {
-                        if(ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)
-                        {
-                            // TODO: Consider calling
-                            //    ActivityCompat#requestPermissions
-                            // here to request the missing permissions, and then overriding
-                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                            //                                          int[] grantResults)
-                            // to handle the case where the user grants the permission. See the documentation
-                            // for ActivityCompat#requestPermissions for more details.
-                        }
-
                         bluetoothAdapter.cancelDiscovery();
                     }
                 });
@@ -113,18 +100,6 @@ public class MainActivity extends AppCompatActivity
                 AlertDialog alertDialog = alertDialogBuilder.create();
 
                 alertDialog.show();
-
-                if(ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)
-                {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
-                }
-
                 bluetoothAdapter.startDiscovery();
 
                 Vector<TrimmedDevice> trimmedDeviceVector = new Vector<>();
@@ -138,18 +113,7 @@ public class MainActivity extends AppCompatActivity
                         {
                             BluetoothDevice bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 
-                            if(ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
-                            {
-                                // TODO: Consider calling
-                                //    ActivityCompat#requestPermissions
-                                // here to request the missing permissions, and then overriding
-                                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                                //                                          int[] grantResults)
-                                // to handle the case where the user grants the permission. See the documentation
-                                // for ActivityCompat#requestPermissions for more details.
-                            }
-
-                            TrimmedDevice trimmedDevice = new TrimmedDevice(bluetoothDevice.getName(), bluetoothDevice.getAddress());
+                            @SuppressLint("MissingPermission") TrimmedDevice trimmedDevice = new TrimmedDevice(bluetoothDevice.getName(), bluetoothDevice.getAddress());
                             boolean exists = false;
 
                             for(int i = 0; i < trimmedDeviceVector.size(); ++i)
@@ -207,10 +171,63 @@ public class MainActivity extends AppCompatActivity
         });
     }
 
+
     @Override
     protected void onResume()
     {
         super.onResume();
+
+        Vector<String> permissionsNeeded = new Vector<>();
+        boolean requestNeeded = false;
+
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED)
+        {
+            permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
+
+            requestNeeded = true;
+        }
+
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        {
+            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_DENIED)
+            {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_ADVERTISE);
+
+                requestNeeded = true;
+            }
+
+            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_DENIED)
+            {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
+
+                requestNeeded = true;
+            }
+
+            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_DENIED)
+            {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
+
+                requestNeeded = true;
+            }
+        }
+
+        String[] permissionsNeededArray = new String[permissionsNeeded.size()];
+
+        permissionsNeeded.toArray(permissionsNeededArray);
+
+        if(requestNeeded)
+        {
+            requestPermissions(permissionsNeededArray, 200);
+        }
+
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        if(!bluetoothAdapter.isEnabled())
+        {
+            Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+
+            startActivity(intent);
+        }
 
         TrimmedDevice connectedDevice = null;
 
@@ -263,7 +280,7 @@ public class MainActivity extends AppCompatActivity
 
         linearLayout.removeAllViews();
 
-        for(int i = 0; i < trimmedDeviceVector.size(); ++i)
+        for(int i = 0; i < Objects.requireNonNull(trimmedDeviceVector).size(); ++i)
         {
             CardView scannedDeviceView = (CardView)getLayoutInflater().inflate(R.layout.sample_scanned_device, linearLayout, false);
             TextView nameTextView = scannedDeviceView.findViewById(R.id.scanned_device_name_text_view);
