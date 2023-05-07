@@ -1,10 +1,17 @@
 package com.siam11651.bluno_bpm;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContract;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -12,11 +19,14 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,19 +37,30 @@ import com.github.mikephil.charting.data.LineDataSet;
 import com.siam11651.bluno_bpm.GattCallbacks.BlUnoGattCallback;
 import com.siam11651.bluno_bpm.Services.BluetoothLEService;
 import com.siam11651.bluno_bpm.Utils.BluetoothConnection;
+import com.siam11651.bluno_bpm.Utils.DataUpdateTimerTask;
 import com.siam11651.bluno_bpm.Utils.DeviceReaderWriter;
+import com.siam11651.bluno_bpm.Utils.SignalData;
 
 import org.json.JSONException;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.util.Objects;
+import java.util.Timer;
 import java.util.Vector;
+
+import kotlin.Pair;
 
 public class ConnectedActivity extends AppCompatActivity
 {
+    Timer dataUpdateTimer;
+    DataUpdateTimerTask dataUpdateTimerTask;
     private Intent bluetoothServiceIntent;
-    Vector<Entry> systoleEntries;
-    Vector<Entry> diastoleEntries;
+    private StringBuffer csvStringBuffer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -48,34 +69,30 @@ public class ConnectedActivity extends AppCompatActivity
         setContentView(R.layout.activity_connected);
         Objects.requireNonNull(getSupportActionBar()).setTitle(BluetoothConnection.GetBluetoothConnection().GetDevice().GetName());
 
-        systoleEntries = new Vector<>();
-        diastoleEntries = new Vector<>();
-        TextView systoleTextView = findViewById(R.id.systole_text_view);
-        TextView diastoleTextView = findViewById(R.id.diastole_text_view);
+        TextView systoleTextView = findViewById(R.id.signal_text_view);
         bluetoothServiceIntent = new Intent(this, BluetoothLEService.class);
 
         startForegroundService(bluetoothServiceIntent);
 
         LineChart chart = findViewById(R.id.chart1);
-        final Long[] count = {0L};
         LineData lineData = new LineData();
-        LineDataSet systoleDataSet = new LineDataSet(systoleEntries, "Systole");
-        LineDataSet diastoleDataSet = new LineDataSet(diastoleEntries, "Diastole");
+        Vector<Entry> systoleEntries = new Vector<>();
+        LineDataSet systoleDataSet = new LineDataSet(systoleEntries, "Signal");
 
         systoleDataSet.setValueTextSize(0);
         systoleDataSet.setDrawCircles(false);
-        diastoleDataSet.setColor(Color.RED);
-        diastoleDataSet.setCircleColor(Color.RED);
-        diastoleDataSet.setValueTextSize(0);
-        diastoleDataSet.setDrawCircles(false);
         lineData.addDataSet(systoleDataSet);
-        lineData.addDataSet(diastoleDataSet);
         chart.setData(lineData);
         chart.setBackgroundColor(Color.WHITE);
         chart.setDescription(null);
         chart.setDragEnabled(false);
         chart.setScaleEnabled(false);
         chart.setPinchZoom(false);
+
+        dataUpdateTimerTask = new DataUpdateTimerTask(this, systoleEntries, lineData, systoleDataSet, chart, systoleTextView);
+        dataUpdateTimer = new Timer();
+
+        dataUpdateTimer.scheduleAtFixedRate(dataUpdateTimerTask, 0, 100);
 
         BroadcastReceiver bleBroadcastReciever = new BroadcastReceiver()
         {
@@ -88,34 +105,10 @@ public class ConnectedActivity extends AppCompatActivity
                 }
                 else if(intent.getAction().equals(BlUnoGattCallback.ACTION_DATA_AVAILABLE))
                 {
-                    String data = intent.getStringExtra(BlUnoGattCallback.EXTRA_DATA);
-                    String[] tokens = data.split(" ");
+                    String data = intent.getStringExtra(BlUnoGattCallback.EXTRA_DATA).trim();
+                    SignalData signalData = SignalData.GetSignalData();
 
-                    if(tokens[0].equals("b"))
-                    {
-                        if(systoleEntries.size() > 50)
-                        {
-                            systoleEntries.remove(0);
-                        }
-
-                        if(diastoleEntries.size() > 50)
-                        {
-                            diastoleEntries.remove(0);
-                        }
-
-                        systoleEntries.add(new Entry((float)count[0] / 10, Integer.parseInt(tokens[1])));
-                        diastoleEntries.add(new Entry((float)count[0] / 10, Integer.parseInt(tokens[2])));
-
-                        ++count[0];
-
-                        systoleDataSet.notifyDataSetChanged();
-                        diastoleDataSet.notifyDataSetChanged();
-                        lineData.notifyDataChanged();
-                        chart.notifyDataSetChanged();
-                        chart.invalidate();
-                        systoleTextView.setText(tokens[1]);
-                        diastoleTextView.setText(tokens[2]);
-                    }
+                    signalData.SetSignalDataValue(data);
                 }
                 else if(intent.getAction().equals("INVALID_DEVICE"))
                 {
@@ -151,6 +144,42 @@ public class ConnectedActivity extends AppCompatActivity
         intentFilter.addAction(BlUnoGattCallback.ACTION_DATA_AVAILABLE);
         intentFilter.addAction("INVALID_DEVICE");
         registerReceiver(bleBroadcastReciever, intentFilter);
+
+        Button recordButton = findViewById(R.id.record_button);
+
+        recordButton.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                Button viewButton = (Button)v;
+
+                if(dataUpdateTimerTask.IsRecording())
+                {
+                    viewButton.setText("Record");
+
+                    csvStringBuffer = new StringBuffer();
+                    Vector<Pair<Float, Float>> dataRecord = dataUpdateTimerTask.GetSignalValueTimeRecord();
+
+                    for(int i = 0; i < dataRecord.size(); ++i)
+                    {
+                        csvStringBuffer.append(dataRecord.get(i).getFirst()).append(",").append(dataRecord.get(i).getSecond()).append("\n");
+                    }
+
+                    Intent createDocumentIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+
+                    createDocumentIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                    createDocumentIntent.setType("text/csv");
+                    startActivityForResult(createDocumentIntent, 123);
+                }
+                else
+                {
+                    viewButton.setText("Save");
+                }
+
+                dataUpdateTimerTask.ToggleRecording();
+            }
+        });
     }
 
     @Override
@@ -208,6 +237,32 @@ public class ConnectedActivity extends AppCompatActivity
             Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
 
             startActivity(intent);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data)
+    {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if(requestCode == 123 && resultCode == Activity.RESULT_OK)
+        {
+            Uri path = data.getData();
+            String csvString = new String(csvStringBuffer);
+
+            try
+            {
+                OutputStream csvOutputStream = getContentResolver().openOutputStream(path);
+
+                csvOutputStream.write(csvString.getBytes());
+                csvOutputStream.close();
+            }
+            catch(IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+
+            dataUpdateTimerTask.ToggleRecording();
         }
     }
 

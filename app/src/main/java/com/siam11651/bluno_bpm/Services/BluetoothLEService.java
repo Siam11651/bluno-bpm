@@ -60,10 +60,15 @@ public class BluetoothLEService extends Service
     @SuppressLint("MissingPermission")
     public void Disconnect()
     {
+        connected = false;
+
+        if(bluetoothGatt == null)
+        {
+            return;
+        }
+
         bluetoothGatt.disconnect();
         bluetoothGatt.close();
-
-        connected = false;
     }
 
     @Override

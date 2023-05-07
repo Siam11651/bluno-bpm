@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        getSupportActionBar().setTitle("Recently Connected Devices");
+        Objects.requireNonNull(getSupportActionBar()).setTitle("Recently Connected Devices");
 
         Button scanNewDeviceButton = findViewById(R.id.scan_new_device_button);
 

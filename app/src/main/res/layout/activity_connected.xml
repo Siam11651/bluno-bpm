@@ -27,10 +27,10 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Systole" />
+            android:text="Signal" />
 
         <TextView
-            android:id="@+id/systole_text_view"
+            android:id="@+id/signal_text_view"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="0"
@@ -38,18 +38,13 @@
 
         <Space
             android:layout_width="match_parent"
-            android:layout_height="25dp" />
+            android:layout_height="10dp" />
 
-        <TextView
+        <Button
+            android:id="@+id/record_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Diastole" />
+            android:text="Record" />
 
-        <TextView
-            android:id="@+id/diastole_text_view"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0"
-            android:textSize="24sp" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
